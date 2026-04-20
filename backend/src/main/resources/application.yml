@@ -1,0 +1,93 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: bvmt-decision-platform
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bvmt}
+    username: ${DB_USER:bvmt}
+    password: ${DB_PASSWORD:bvmt}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # Flyway gère le schéma
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+# ---------- Propriétés applicatives ----------
+bvmt:
+  etl:
+    enabled: ${ETL_ENABLED:true}
+    # Import quotidien à 18h (après clôture BVMT à 14h10 + marge sûreté)
+    daily-import-cron: "0 0 18 * * MON-FRI"
+    intraday-refresh-cron: "0 */5 10-14 * * MON-FRI"
+    sources:
+      bvmt-bulletin-url: "https://www.bvmt.com.tn/editions-statistique"
+      bvmt-history-url: "https://www.bvmt.com.tn/fr/historique-cotations"
+      # Repli scraping — à n'activer QUE si autorisé par les CGU
+      ilboursa-enabled: false
+      ilboursa-base-url: "https://www.ilboursa.com"
+
+  indicator:
+    rsi-period: 14
+    rsi-oversold: 30
+    rsi-overbought: 70
+    sma-short: 20
+    sma-long: 50
+    ema-short: 12
+    ema-long: 26
+    macd-signal: 9
+
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-me-in-production-this-is-a-dev-secret-with-enough-entropy-for-hs256}
+      expiration-ms: 86400000     # 24h
+      refresh-expiration-ms: 604800000   # 7j
+
+# ---------- Actuator / monitoring ----------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ---------- Logging ----------
+logging:
+  level:
+    com.bvmt.decision: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: WARN
+
+# ---------- OpenAPI ----------
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
